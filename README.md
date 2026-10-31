@@ -1,9 +1,9 @@
+This is a repository for porting the upstream [ps5-smbd](https://github.com/sahlberg/ps5-smbd) to other consoles.
+The [ps2 fork](https://github.com/sahlberg/ps5-smbd/tree/ps2) contains a port to the PS2 EE.
+
 <p align="center"><img src="docs/media/logo.png" width="520" alt="ps5-smbd, SMB server payload"></p>
 
 # ps5-smbd
-
-This is a repository for porting the upstream [ps5-smbd](https://github.com/sahlberg/ps5-smbd) to other consoles.
-The [ps2 fork](https://github.com/sahlberg/ps5-smbd/tree/ps2) contains a port to the PS2 EE.
 
 The PS5's `/data` and `/mnt` as Windows shares, from a payload: `\\<console>\data` and `\\<console>\mnt`,
 user `ps5`, password `ps5`, read and write.
