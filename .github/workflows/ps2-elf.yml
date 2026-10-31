@@ -1,0 +1,30 @@
+name: PS2 ELF
+
+on:
+  push:
+    branches: [ps2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build ps2-smbd.elf
+        run: make ps2-docker
+
+      - name: Check the ELF
+        run: file ps2-smbd.elf | grep -q 'ELF'
+
+      - name: Publish ps2-smbd.elf
+        uses: actions/upload-artifact@v7
+        with:
+          name: ps2-smbd.elf
+          path: ps2-smbd.elf
+          if-no-files-found: error
