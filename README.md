@@ -1,6 +1,10 @@
-This is a repository for porting the upstream [ps5-smbd](https://github.com/sahlberg/ps5-smbd) to other consoles.
 The [ps2 fork](https://github.com/sahlberg/ps5-smbd/tree/ps2) contains a port to the PS2 EE.
 The [ps3 fork](https://github.com/sahlberg/ps5-smbd/tree/ps3) contains a port to the PS3.
+
+## PS2
+
+The two memory cards are exported as shares named `mc0` and `mc1`: `\\<ip>\mc0` and `\\<ip>\mc1`.
+Username `ps5`, password `ps5`.
 
 <p align="center"><img src="docs/media/logo.png" width="520" alt="ps5-smbd, SMB server payload"></p>
 
