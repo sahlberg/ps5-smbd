@@ -12,8 +12,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # The 2020 PSL1GHT package tools are Python 2.7 and link libcrypto.so.1.1. Both are in Ubuntu 22.04
-    # and not in the runner image itself.
+    # The 2020 PSL1GHT package tools are Python 2.7 and link libcrypto.so.1.1.
+    # Jammy still has Python 2. OpenSSL 1.1 is gone from its package index; the old deb is still in the pool.
     container: ubuntu:22.04
     timeout-minutes: 45
     env:
@@ -24,16 +24,13 @@ jobs:
         run: |
           set -eu
           apt-get update
-          # python2.7, which the 2020 pkg tools use, is in universe.
-          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu jammy universe' \
-                        'deb http://archive.ubuntu.com/ubuntu jammy-updates universe' \
-                        'deb http://security.ubuntu.com/ubuntu jammy-security universe' \
-            >> /etc/apt/sources.list
-          apt-get update
-          # python3 runs idlcomp.py. libelf1 is sprxlinker. libssl1.1 is the OpenSSL the pkg tools link.
+          # python3 runs idlcomp.py. libelf1 is sprxlinker. python2.7 runs pkg.py and sfo.py.
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            build-essential ca-certificates curl file git libelf1 libssl1.1 make patch \
+            build-essential ca-certificates curl file git libelf1 make patch \
             python2 python2.7 python3
+          curl -fsSL -o /tmp/libssl1.1.deb \
+            http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          dpkg -i /tmp/libssl1.1.deb
 
       - uses: actions/checkout@v7
 
