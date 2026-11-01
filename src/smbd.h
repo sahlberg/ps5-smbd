@@ -8,8 +8,13 @@
 #include <smb2/libsmb2.h>
 #include <smb2/libsmb2-raw.h>
 
+#ifdef PS3_PPU_PLATFORM
+#define SMBD_USER     "ps3"
+#define SMBD_PASSWORD "ps3"
+#else
 #define SMBD_USER     "ps5"
 #define SMBD_PASSWORD "ps5"
+#endif
 
 /* The shares (shares.c): name, folder. data and mnt come first; after them each drive under mnt that is
    mounted, added when first seen and kept (an index stays valid), so check share_available(). IPC$ is

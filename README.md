@@ -4,7 +4,7 @@ The [ps3 fork](https://github.com/sahlberg/ps5-smbd/tree/ps3) contains a port to
 
 ## PS3
 
-Everything under `/` is one share, `root`: `\\<ip>\root`. Username `ps5`, password `ps5`.
+Everything under `/` is one share, `root`: `\\<ip>\root`. Username `ps3`, password `ps3`.
 `ps3-smbd.pkg` installs on CFW or HEN. OK on the dialog, or quitting from the XMB, stops the server.
 Anyone who can log in can change anything under `/`.
 

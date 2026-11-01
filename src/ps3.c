@@ -147,7 +147,7 @@ int ps3_serve(struct smb2_server *server, int max_clients, void (*cb)(struct smb
 			break;
 		if (!dialog && (server->listener_ready || arg.done)) {
 			if (server->listener_ready)
-				snprintf(msg, sizeof(msg), "\\\\%s\\root\nuser ps5  password ps5\nEverything under /.\nOK stops the server.",
+				snprintf(msg, sizeof(msg), "\\\\%s\\root\nuser ps3  password ps3\nEverything under /.\nOK stops the server.",
 				         ip);
 			else if (!g_net_ok)
 				snprintf(msg, sizeof(msg), "No network.\nOK to quit.");
