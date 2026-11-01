@@ -49,7 +49,7 @@ PS3_APPID := SMBD00001
 PS3_CONTENTID := UP0001-SMBD00001_00-0000000000000000
 PS3_HOSTLIB ?= /data/sahlberg/PS3/lib
 PS3_PYTHON ?= python2.7
-PS3_LIBSMB2_COMMIT := 727feaaa6d0f4fed1bae57745fbc2c5db9a30e64
+PS3_LIBSMB2_COMMIT := 565460de50d97c451d2692d9fab48314b47e453a
 PS3_SRCS := src/main.c src/fs.c src/rpc.c src/names.c src/wsd.c src/shares.c src/ps3.c
 PS3_BUILD := build/ps3
 
