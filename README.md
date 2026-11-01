@@ -2,6 +2,16 @@ This is a repository for porting the upstream [ps5-smbd](https://github.com/sahl
 The [ps2 fork](https://github.com/sahlberg/ps5-smbd/tree/ps2) contains a port to the PS2 EE.
 The [ps3 fork](https://github.com/sahlberg/ps5-smbd/tree/ps3) contains a port to the PS3.
 
+## PS3
+
+Everything under `/` is one share, `root`: `\\<ip>\root`. Username `ps5`, password `ps5`.
+`ps3-smbd.pkg` installs on CFW or HEN. OK on the dialog, or quitting from the XMB, stops the server.
+Anyone who can log in can change anything under `/`.
+
+`make ps3` builds the package with the PSL1GHT toolchain libsmb2's PS3 port uses (`PS3DEV`, default
+`/data/sahlberg/PS3/ps3dev`). The workflow on this branch publishes `ps3-smbd.pkg`. The log is
+`/dev_hdd0/tmp/ps3-smbd/smbd.log`; a file named `trace` in that directory turns on a line per request.
+
 <p align="center"><img src="docs/media/logo.png" width="520" alt="ps5-smbd, SMB server payload"></p>
 
 # ps5-smbd

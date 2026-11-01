@@ -18,7 +18,18 @@
 #define SMBD_PORT 445
 #endif
 #ifndef SMBD_TRACE_FILE
+#ifdef PS3_PPU_PLATFORM
+#define SMBD_TRACE_FILE "/dev_hdd0/tmp/ps3-smbd/smbd.log"
+#else
 #define SMBD_TRACE_FILE "/data/ps5-smbd/smbd.log"
+#endif
+#endif
+#ifndef SMBD_TRACE_SWITCH
+#ifdef PS3_PPU_PLATFORM
+#define SMBD_TRACE_SWITCH "/dev_hdd0/tmp/ps3-smbd/trace"
+#else
+#define SMBD_TRACE_SWITCH "/data/ps5-smbd/trace"
+#endif
 #endif
 #ifndef SMBD_SOCKET_BUFFER
 #define SMBD_SOCKET_BUFFER (4 << 20)
@@ -39,11 +50,16 @@ void smbd_log(const char *fmt, ...)
 	va_start(ap, fmt);
 	vsnprintf(line, sizeof(line), fmt, ap);
 	va_end(ap);
-	/* stdout of a payload goes to the kernel log (klogsrv shows it) */
+	/* stdout of a payload goes to the kernel log (klogsrv shows it). On the PS3 the screen is the dialog,
+	   so the log file is written whether tracing is on or not. */
 	printf("[ps5-smbd] %s\n", line);
 	fflush(stdout);
+#ifdef PS3_PPU_PLATFORM
+	if (g_trace_log) {
+#else
 	/* with tracing on, a file too: a payload started by a payload manager may not reach the kernel log */
 	if (smbd_trace && g_trace_log) {
+#endif
 		fprintf(g_trace_log, "%ld %s\n", (long)time(NULL), line);
 		fflush(g_trace_log);
 	}
@@ -95,7 +111,7 @@ static void on_new_client(struct smb2_context *smb2, void *cb_data)
 	set_socket_buffers(smb2_get_fd(smb2));
 }
 
-#ifndef SMBD_HOST
+#if !defined(SMBD_HOST) && !defined(PS3_PPU_PLATFORM)
 /* The process's name in the console's process list (and PayLoader's Running screen), instead of "payload". */
 int sceKernelSetProcessName(const char *name);
 /* The console's name as set in Settings > System; parameter 6 on the PS4 and the PS5 (OpenOrbis'
@@ -104,7 +120,7 @@ int sceSystemServiceParamGetString(int param_id, char *buf, size_t size);
 #define SYSTEM_SERVICE_PARAM_ID_SYSTEM_NAME 6
 #endif
 
-#ifndef SMBD_HOST
+#if !defined(SMBD_HOST) && !defined(PS3_PPU_PLATFORM)
 #include <fcntl.h>
 #include <ucontext.h>
 #include <unistd.h>
@@ -178,6 +194,16 @@ static void pick_name(void)
 
 #ifdef SMBD_HOST
 	snprintf(name, sizeof(name), "%s", getenv("SMBD_NAME") ? getenv("SMBD_NAME") : "PS5-HOST");
+#elif defined(PS3_PPU_PLATFORM)
+	if (ps3_console_name(name, sizeof(name)) != 0 || !name[0])
+		snprintf(name, sizeof(name), "PS3");
+	name[sizeof(name) - 1] = 0;
+	for (const char *c = name; *c; c++) {
+		if ((unsigned char)*c < 0x20) {
+			snprintf(name, sizeof(name), "PS3");
+			break;
+		}
+	}
 #else
 	if (sceSystemServiceParamGetString(SYSTEM_SERVICE_PARAM_ID_SYSTEM_NAME, name, sizeof(name)) != 0)
 		name[0] = 0;
@@ -198,19 +224,28 @@ int main(void)
 	static struct smb2_server server;
 	int err;
 
-#ifndef SMBD_HOST
+#if !defined(SMBD_HOST) && !defined(PS3_PPU_PLATFORM)
 	sceKernelSetProcessName("ps5-smbd.elf");
 	catch_crashes();
 #endif
+#ifdef PS3_PPU_PLATFORM
+	if (ps3_init() < 0)
+		return 0;
+#endif
 	signal(SIGPIPE, SIG_IGN);
 	{
-		FILE *f = fopen("/data/ps5-smbd/trace", "r"); /* the switch: its presence, not its content */
+		FILE *f = fopen(SMBD_TRACE_SWITCH, "r"); /* the switch: its presence, not its content */
 
 		smbd_trace = getenv("SMBD_TRACE") != NULL || f != NULL;
 		if (f)
 			fclose(f);
+#ifdef PS3_PPU_PLATFORM
+		/* stdout never reaches a screen; the file is the log */
+		g_trace_log = fopen(SMBD_TRACE_FILE, "a");
+#else
 		if (smbd_trace)
 			g_trace_log = fopen(SMBD_TRACE_FILE, "a");
+#endif
 	}
 	pick_name();
 	if (rpc_init() < 0)
@@ -230,9 +265,15 @@ int main(void)
 		server.guid[i] = (uint8_t)(time(NULL) >> (i % 4 * 8)) ^ (uint8_t)(i * 37);
 
 	shares_refresh();
+#ifdef PS3_PPU_PLATFORM
+	smbd_log("starting on port %d: \\\\%s\\%s, login %s (everything under /)", SMBD_PORT, smbd_name,
+	         smbd_shares[0].name, SMBD_USER);
+	err = ps3_serve(&server, SMBD_MAX_CLIENTS, on_new_client, NULL);
+#else
 	smbd_log("starting on port %d: \\\\%s\\%s and \\%s (and its drives), login %s", SMBD_PORT, smbd_name,
 	         smbd_shares[0].name, smbd_shares[1].name, SMBD_USER);
 	err = smb2_serve_port(&server, SMBD_MAX_CLIENTS, on_new_client, NULL);
+#endif
 	smbd_log("stopped (%d): is another SMB server already on port %d?", err, SMBD_PORT);
 	{
 		/* in the file whether tracing is on or not: the server is gone, and this says why */

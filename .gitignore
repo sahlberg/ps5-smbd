@@ -1,4 +1,5 @@
 *.elf
+*.pkg
 .deps/
 build/
 docs/decision-log.md

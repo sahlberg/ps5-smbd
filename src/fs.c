@@ -6,7 +6,7 @@
  * file just created by the file id with every bit set (RELATED_FID).
  *
  * Paths come in relative to the share, with backslashes; they are joined under the share's folder after
- * every ".." and absolute part has been refused, so nothing outside /data and /mnt is reachable. */
+ * every ".." and absolute part has been refused, so nothing outside that folder is reachable. */
 
 #include <ctype.h>
 #include <dirent.h>
@@ -286,8 +286,17 @@ static int join_path(int share, const char *name, char *out, size_t size)
 			break;
 		part = end + 1;
 	}
-	if ((size_t)snprintf(out, size, "%s%s%s", smbd_shares[share].root, rel[0] ? "/" : "", rel) >= size)
-		return -1;
+	{
+		const char *root = smbd_shares[share].root;
+		size_t root_len = strlen(root);
+		const char *sep = "";
+
+		/* a root of "/" already ends in a slash; another one would make //dev_hdd0 */
+		if (rel[0] && root_len && root[root_len - 1] != '/')
+			sep = "/";
+		if ((size_t)snprintf(out, size, "%s%s%s", root, sep, rel) >= size)
+			return -1;
+	}
 	return 0;
 }
 
@@ -310,6 +319,12 @@ static struct smb2_timeval tv_of(time_t sec, long nsec)
 #define ATIME(st) (st)->st_atim
 #define CTIME(st) (st)->st_ctim
 #define BTIME(st) (st)->st_birthtim
+#elif defined(PS3_PPU_PLATFORM)
+/* newlib's struct stat keeps seconds only (st_mtime, not st_mtim). */
+#define MTIME(st) ((struct timespec){(st)->st_mtime, 0})
+#define ATIME(st) ((struct timespec){(st)->st_atime, 0})
+#define CTIME(st) ((struct timespec){(st)->st_ctime, 0})
+#define BTIME(st) ((struct timespec){(st)->st_mtime, 0})
 #else
 #define MTIME(st) (st)->st_mtim
 #define ATIME(st) (st)->st_atim
@@ -736,7 +751,7 @@ static int read_file(struct smb2_server *srvr, struct smb2_context *smb2, struct
 	}
 	memset(rep, 0, sizeof(*rep));
 	if (smbd_trace)
-		smbd_log("read %s: %zd at %llu", h->path, n, (unsigned long long)req->offset);
+		smbd_log("read %s: %lld at %llu", h->path, (long long)n, (unsigned long long)req->offset);
 	rep->data = buf; /* libsmb2 frees it with the reply */
 	rep->data_length = (uint32_t)n;
 	rep->data_remaining = 0;

@@ -6,7 +6,9 @@
  * \\<console>\ext1 the drive is the root and the room is its own.
  *
  * The table only grows: a handle keeps its share's index, so an entry stays when its drive goes; whether a
- * drive is there is checked when a client connects to it or lists the shares. The SMB loop is the only user. */
+ * drive is there is checked when a client connects to it or lists the shares. The SMB loop is the only user.
+ *
+ * On the PS3 the table is the one share "root" of /, and nothing is scanned. */
 
 #include <ctype.h>
 #include <dirent.h>
@@ -17,6 +19,11 @@
 
 #include "smbd.h"
 
+#ifdef PS3_PPU_PLATFORM
+/* One share, the whole file system. The paths under / (dev_hdd0, dev_usb000, ...) are the console's own. */
+struct share smbd_shares[SMBD_MAX_SHARES] = {{"root", "/"}};
+int smbd_share_count = 1;
+#else
 #ifdef SMBD_HOST
 #define DATA_ROOT SMBD_DATA
 #define MNT_ROOT SMBD_MNT
@@ -27,7 +34,9 @@
 
 struct share smbd_shares[SMBD_MAX_SHARES] = {{"data", DATA_ROOT}, {"mnt", MNT_ROOT}};
 int smbd_share_count = 2;
+#endif
 
+#ifndef PS3_PPU_PLATFORM
 /* "ext" or "usb" and a number: the drives the console mounts under /mnt (not its own mounts there, such as
    sandbox or pfs). */
 static int is_drive_name(const char *name)
@@ -66,8 +75,13 @@ static int drive_mounted(const char *root)
 	return 1;
 }
 
+#endif
+
 void shares_refresh(void)
 {
+#ifdef PS3_PPU_PLATFORM
+	return;
+#else
 	DIR *d = opendir(MNT_ROOT);
 	struct dirent *e;
 
@@ -92,13 +106,18 @@ void shares_refresh(void)
 		smbd_share_count++;
 	}
 	closedir(d);
+#endif
 }
 
 int share_available(int i)
 {
 	if (i < 0 || i >= smbd_share_count)
 		return 0;
+#ifdef PS3_PPU_PLATFORM
+	return 1;
+#else
 	return i < 2 || drive_mounted(smbd_shares[i].root);
+#endif
 }
 
 int share_device(int i, unsigned long long *device)

@@ -1,0 +1,57 @@
+name: PS3 PKG
+
+on:
+  push:
+    branches: [ps3]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The 2020 PSL1GHT package tools are Python 2.7 and link libcrypto.so.1.1. Both are in Ubuntu 22.04
+    # and not in the runner image itself.
+    container: ubuntu:22.04
+    timeout-minutes: 45
+    env:
+      PS3DEV: ${{ github.workspace }}/ps3dev
+      PSL1GHT: ${{ github.workspace }}/ps3dev
+    steps:
+      - name: Install host tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl file git libssl1.1 make patch python2 python2.7
+
+      - uses: actions/checkout@v7
+
+      - name: Install the PS3 toolchain
+        run: |
+          set -eu
+          curl -fL --retry 3 -o /tmp/ps3dev.tar.gz \
+            https://github.com/bucanero/ps3toolchain/releases/download/ubuntu-latest-fad3b5fb/ps3dev-ubuntu-latest-2020-08-31.tar.gz
+          mkdir -p /tmp/ps3dev-src "$PS3DEV"
+          tar -xzf /tmp/ps3dev.tar.gz -C /tmp/ps3dev-src
+          gcc=$(find /tmp/ps3dev-src -type f -path '*/ppu/bin/ppu-gcc' | head -1)
+          test -n "$gcc"
+          src=$(dirname "$(dirname "$(dirname "$gcc")")")
+          cp -a "$src"/. "$PS3DEV"/
+
+      - name: Build ps3-smbd.pkg
+        run: make ps3
+
+      - name: Check the package
+        run: |
+          test -s ps3-smbd.pkg
+          od -An -tx1 -N4 ps3-smbd.pkg | grep -q '7f 50 4b 47'
+          file ps3-smbd.pkg
+
+      - name: Publish ps3-smbd.pkg
+        uses: actions/upload-artifact@v7
+        with:
+          name: ps3-smbd.pkg
+          path: ps3-smbd.pkg
+          if-no-files-found: error

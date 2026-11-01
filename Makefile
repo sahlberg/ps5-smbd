@@ -38,7 +38,58 @@ host: .deps/host/lib/libsmb2.a $(SRCS) $(HDRS)
 deploy: $(ELF)
 	$(PS5_DEPLOY) -h $(PS5_HOST) -p $(PS5_PORT) $(ELF)
 
-clean:
-	rm -f $(ELF) ps5-smbd-host
+# The same server on the PS3: one share rooted at /, as a package. libsmb2 is built with its PS3 makefile.
+PS3DEV ?= /data/sahlberg/PS3/ps3dev
+PSL1GHT ?= $(PS3DEV)
+PS3_CC := $(PS3DEV)/ppu/bin/ppu-gcc
+PS3_TITLE := ps3-smbd
+PS3_ELF := $(PS3_TITLE).elf
+PS3_PKG := $(PS3_TITLE).pkg
+PS3_APPID := SMBD00001
+PS3_CONTENTID := UP0001-SMBD00001_00-0000000000000000
+PS3_HOSTLIB ?= /data/sahlberg/PS3/lib
+PS3_PYTHON ?= python2.7
+PS3_LIBSMB2_COMMIT := 727feaaa6d0f4fed1bae57745fbc2c5db9a30e64
+PS3_SRCS := src/main.c src/fs.c src/rpc.c src/names.c src/wsd.c src/shares.c src/ps3.c
+PS3_BUILD := build/ps3
 
-.PHONY: all require-sdk host deploy clean
+.deps/ps3/lib/libsmb2.a:
+	PS3DEV=$(PS3DEV) PSL1GHT=$(PSL1GHT) tools/build-libsmb2.sh ps3
+
+.deps/ps3/lib/libdcerpc.a: .deps/ps3/lib/libsmb2.a
+	@test -f $@
+
+$(PS3_ELF): .deps/ps3/lib/libsmb2.a .deps/ps3/lib/libdcerpc.a $(PS3_SRCS) $(HDRS)
+	export PS3DEV="$(PS3DEV)" PSL1GHT="$(PSL1GHT)"; \
+	export PATH="$(PS3DEV)/bin:$(PS3DEV)/ppu/bin:$$PATH"; \
+	$(PS3_CC) -mcpu=cell -mhard-float -Wall -Wextra -O2 -std=gnu11 \
+	  -DPS3_PPU_PLATFORM -DSMBD_VERSION='"$(VERSION)"' \
+	  -Isrc/ps3 -Isrc -I.deps/ps3/include \
+	  -I.deps/build-ps3/libsmb2-$(PS3_LIBSMB2_COMMIT)/include \
+	  -I$(PSL1GHT)/ppu/include \
+	  -o $@ $(PS3_SRCS) \
+	  -L.deps/ps3/lib -ldcerpc -lsmb2 \
+	  -lnet -lnetctl -lsysutil -lsysmodule -lio -lsysfs -llv2 -lrt -lm
+
+ps3: $(PS3_PKG)
+
+$(PS3_PKG): $(PS3_ELF)
+	export PATH="$(PS3DEV)/bin:$(PS3DEV)/ppu/bin:$$PATH"; \
+	export LD_LIBRARY_PATH="$(PS3_HOSTLIB):$$LD_LIBRARY_PATH"; \
+	rm -rf $(PS3_BUILD) && mkdir -p $(PS3_BUILD)/pkg/USRDIR && \
+	ppu-strip $(PS3_ELF) -o $(PS3_BUILD)/$(PS3_ELF) && \
+	sprxlinker $(PS3_BUILD)/$(PS3_ELF) && \
+	make_self_npdrm $(PS3_BUILD)/$(PS3_ELF) $(PS3_BUILD)/pkg/USRDIR/EBOOT.BIN $(PS3_CONTENTID) && \
+	cp $(PS3DEV)/bin/ICON0.PNG $(PS3_BUILD)/pkg/ICON0.PNG && \
+	$(PS3_PYTHON) $(PS3DEV)/bin/sfo.py --title "$(PS3_TITLE)" --appid "$(PS3_APPID)" \
+	  -f $(PS3DEV)/bin/sfo.xml $(PS3_BUILD)/pkg/PARAM.SFO && \
+	$(PS3_PYTHON) $(PS3DEV)/bin/pkg.py --contentid $(PS3_CONTENTID) $(PS3_BUILD)/pkg/ $(PS3_PKG) && \
+	cp $(PS3_PKG) $(PS3_TITLE).gnpdrm.pkg && \
+	package_finalize $(PS3_TITLE).gnpdrm.pkg && \
+	cp $(PS3_TITLE).gnpdrm.pkg $(PS3_PKG)
+
+clean:
+	rm -f $(ELF) ps5-smbd-host $(PS3_ELF) $(PS3_PKG) $(PS3_TITLE).gnpdrm.pkg
+	rm -rf $(PS3_BUILD)
+
+.PHONY: all require-sdk host deploy clean ps3
