@@ -22,9 +22,18 @@ jobs:
     steps:
       - name: Install host tools
         run: |
+          set -eu
           apt-get update
-          apt-get install -y --no-install-recommends \
-            build-essential ca-certificates curl file git libssl1.1 make patch python2 python2.7
+          # python2.7, which the 2020 pkg tools use, is in universe.
+          printf '%s\n' 'deb http://archive.ubuntu.com/ubuntu jammy universe' \
+                        'deb http://archive.ubuntu.com/ubuntu jammy-updates universe' \
+                        'deb http://security.ubuntu.com/ubuntu jammy-security universe' \
+            >> /etc/apt/sources.list
+          apt-get update
+          # python3 runs idlcomp.py. libelf1 is sprxlinker. libssl1.1 is the OpenSSL the pkg tools link.
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl file git libelf1 libssl1.1 make patch \
+            python2 python2.7 python3
 
       - uses: actions/checkout@v7
 
