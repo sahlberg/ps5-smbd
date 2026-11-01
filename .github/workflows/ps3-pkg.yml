@@ -41,8 +41,13 @@ jobs:
             https://github.com/bucanero/ps3toolchain/releases/download/ubuntu-latest-fad3b5fb/ps3dev-ubuntu-latest-2020-08-31.tar.gz
           mkdir -p /tmp/ps3dev-src "$PS3DEV"
           tar -xzf /tmp/ps3dev.tar.gz -C /tmp/ps3dev-src
-          gcc=$(find /tmp/ps3dev-src -type f -path '*/ppu/bin/ppu-gcc' | head -1)
-          test -n "$gcc"
+          # ppu-gcc is a symlink to powerpc64-ps3-elf-gcc, so a search for a regular file misses it.
+          gcc=$(find /tmp/ps3dev-src -path '*/ppu/bin/ppu-gcc' -print -quit)
+          if [ -z "$gcc" ]; then
+            echo "no ppu-gcc in the toolchain archive" >&2
+            find /tmp/ps3dev-src -maxdepth 3 -type d >&2
+            exit 1
+          fi
           src=$(dirname "$(dirname "$(dirname "$gcc")")")
           cp -a "$src"/. "$PS3DEV"/
 
