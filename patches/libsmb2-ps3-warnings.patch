@@ -1,0 +1,36 @@
+PS3's makefile defined _U_ as an empty comment, so the unused marks did nothing and ppu-gcc warned
+about them. The attribute is what the other ports mean by _U_. The recursive make needs a '+' or it
+drops the jobserver and warns. PS3 newlib does not declare gethostname; libsmb2 calls it when the
+server name is empty, and the program defines the function.
+
+--- a/lib/Makefile.PS3_PPU
++++ b/lib/Makefile.PS3_PPU
+@@ -37,7 +37,7 @@
+ DATA		:=	data
+ LIBS		:=	
+ 
+-MACHDEP		:= -DPS3_PPU_PLATFORM -DHAVE_CONFIG_H -DNEED_READV -DNEED_WRITEV -DNEED_GETLOGIN_R -DNEED_RANDOM -DNEED_SRANDOM -DNEED_GETADDRINFO -DNEED_FREEADDRINFO -D_U_=/**/
++MACHDEP		:= -DPS3_PPU_PLATFORM -DHAVE_CONFIG_H -DNEED_READV -DNEED_WRITEV -DNEED_GETLOGIN_R -DNEED_RANDOM -DNEED_SRANDOM -DNEED_GETADDRINFO -DNEED_FREEADDRINFO -D_U_='__attribute__((unused))'
+ 
+ CFLAGS		+= -O2 -Wall -mcpu=cell $(MACHDEP) -fno-strict-aliasing $(INCLUDES)
+ 
+@@ -73,7 +73,7 @@
+ 
+ $(BUILD):
+ 	@[ -d $@ ] || mkdir -p $@
+-	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile.PS3_PPU
++	+@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile.PS3_PPU
+ 
+ install: $(BUILD)
+ ifeq ($(PORTLIBS),)
+--- a/lib/compat.h
++++ b/lib/compat.h
+@@ -557,6 +557,8 @@
+ #include <net/poll.h>
+ 
+ int getlogin_r(char *buf, size_t size);
++/* newlib does not declare gethostname; the program defines it */
++int gethostname(char *name, size_t len);
+ void srandom(unsigned int seed);
+ int random(void);
+ #define getaddrinfo smb2_getaddrinfo

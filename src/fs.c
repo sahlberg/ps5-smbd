@@ -1076,11 +1076,15 @@ static int query_directory(struct smb2_server *srvr, struct smb2_context *smb2,
 				break;
 			if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
 				continue;
-			snprintf(name, sizeof(name), "%s", d->d_name);
+			/* longer than an SMB name: a truncated copy would be a different name */
+			if ((size_t)snprintf(name, sizeof(name), "%s", d->d_name) >= sizeof(name))
+				continue;
 		}
 		if (!match(h->pattern, name))
 			continue;
-		snprintf(full, sizeof(full), "%s/%s", h->path, name);
+		/* path plus name has to fit what stat can be given */
+		if ((size_t)snprintf(full, sizeof(full), "%s/%s", h->path, name) >= sizeof(full))
+			continue;
 		if (stat(full, &st) < 0 && lstat(full, &st) < 0)
 			continue;
 		need = wire_size(req->file_information_class, name);

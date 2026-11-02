@@ -1,0 +1,108 @@
+PS3 libnet socket() returns the kernel fd with bit 0x40000000 set. The serve loop's
+fd_set macros shift by that bit and write off the end of the set, so a connected
+client is never seen, and the kernel set select writes back is 128 bytes while the
+header's is 64. newlib read, write and close do not strip the bit, so a Negotiate
+that the TCP stack has acknowledged is never read and never answered. fcntl does
+not make a libnet socket nonblocking; SO_NBIO does.
+
+--- a/lib/compat.h
++++ b/lib/compat.h
+@@ -607,6 +607,11 @@
+ /* just pretend they are the same so we compile */
+ #define sockaddr_in6 sockaddr_in
+ 
++/* newlib close() does not reach a libnet socket, so the kernel keeps the
++   connection and keeps acknowledging data. closesocket() clears the bit. */
++int closesocket(int s);
++#define close(s) closesocket(s)
++
+ #endif
+ 
+ #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__OpenBSD__)
+--- a/lib/compat.c
++++ b/lib/compat.c
+@@ -524,7 +524,12 @@
+                 if (to_copy == 0)
+                         break;
+         }
++#ifdef PS3_PPU_PLATFORM
++        /* write() is newlib. Only send clears the libnet fd bit. */
++        bytes_written = send((int)fd, buffer, bytes, 0);
++#else
+         bytes_written = write((int)fd, buffer, bytes);
++#endif
+         free(buffer);
+         return bytes_written;
+ }
+@@ -553,7 +558,11 @@
+                 return -1;
+ 
+         /* Read the data.  */
++#ifdef PS3_PPU_PLATFORM
++        bytes_read = recv((int)fd, buffer, bytes, 0);
++#else
+         bytes_read = read((int)fd, buffer, bytes);
++#endif
+         if (bytes_read < 0) {
+                 free(buffer);
+                 return -1;
+--- a/lib/socket.c
++++ b/lib/socket.c
+@@ -1494,6 +1494,10 @@
+          * stays blocking. */
+         int one = 1;
+         net_ioctl(fd, FIONBIO, &one);
++#elif defined(PS3_PPU_PLATFORM)
++        int one = 1;
++        /* fcntl does not reach a libnet socket. SO_NBIO is the flag that does. */
++        setsockopt(fd, SOL_SOCKET, SO_NBIO, (const void *)&one, sizeof(one));
+ #else
+         unsigned v;
+         v = fcntl(fd, F_GETFL, 0);
+@@ -1941,7 +1945,13 @@
+                 clientfd = accept(fd, (struct sockaddr *)&client_addr, &socklen);
+ 
+ #if defined(FD_SETSIZE) && !defined(_WIN32) && !defined(_XBOX)
++#if defined(PS3_PPU_PLATFORM)
++                /* socket() returns fd | SOCKET_FD_MASK, always past FD_SETSIZE.
++                   Compare the kernel fd, or every accepted client is dropped. */
++                if (clientfd >= 0 && (clientfd & ~SOCKET_FD_MASK) >= FD_SETSIZE) {
++#else
+                 if (clientfd >= FD_SETSIZE) {
++#endif
+                         close(clientfd);
+                         return 0;
+                 }
+--- a/include/smb2/libsmb2.h
++++ b/include/smb2/libsmb2.h
+@@ -163,6 +163,30 @@
+ #else
+ #include <sys/select.h>
+ #endif
++#if defined(PS3_PPU_PLATFORM)
++/* socket() returns fd | 0x40000000. The stock macros shift by that bit and
++   write off the end of the fd_set, so select never sees the socket. The
++   kernel set is 32 words and select writes all of them back; the header's
++   set is half that, so the write lands on the caller's stack. */
++#undef fd_set
++#undef FD_SET
++#undef FD_CLR
++#undef FD_ISSET
++typedef struct {
++        unsigned int fds_bits[32];
++} ps3_fd_set;
++#define fd_set ps3_fd_set
++#define PS3_SOCKBIT 0x40000000u
++#define PS3_FD(n) ((unsigned)(n) & ~PS3_SOCKBIT)
++#define FD_SET(n, p) ((p)->fds_bits[PS3_FD(n) / 32] |= (1u << (PS3_FD(n) % 32)))
++#define FD_CLR(n, p) ((p)->fds_bits[PS3_FD(n) / 32] &= ~(1u << (PS3_FD(n) % 32)))
++#define FD_ISSET(n, p) ((p)->fds_bits[PS3_FD(n) / 32] & (1u << (PS3_FD(n) % 32)))
++/* The prototype still names the 64-byte set. Pass the 128-byte one through. */
++#define select(n, r, w, e, t) ((select)((n), \
++        (struct _net_fd_set *)(void *)(r), \
++        (struct _net_fd_set *)(void *)(w), \
++        (struct _net_fd_set *)(void *)(e), (t)))
++#endif
+ #endif
+ 
+ /*
