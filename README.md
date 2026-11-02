@@ -5,7 +5,7 @@ The [ps3 fork](https://github.com/sahlberg/ps5-smbd/tree/ps3) contains a port to
 ## PS3
 
 Everything under `/` is one share, `root`: `\\<ip>\root`. Username `ps3`, password `ps3`.
-`ps3-smbd.pkg` installs on CFW or HEN. OK on the dialog, or quitting from the XMB, stops the server.
+`ps3-smbd.pkg` installs on CFW or HEN. The screen shows the address. Release the button used to start it, then press any controller button to stop the server and return to the XMB.
 Anyone who can log in can change anything under `/`.
 
 `make ps3` builds the package with the PSL1GHT toolchain libsmb2's PS3 port uses (`PS3DEV`, default

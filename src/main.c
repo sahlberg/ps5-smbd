@@ -50,8 +50,8 @@ void smbd_log(const char *fmt, ...)
 	va_start(ap, fmt);
 	vsnprintf(line, sizeof(line), fmt, ap);
 	va_end(ap);
-	/* stdout of a payload goes to the kernel log (klogsrv shows it). On the PS3 the screen is the dialog,
-	   so the log file is written whether tracing is on or not. */
+	/* stdout of a payload goes to the kernel log (klogsrv shows it). On the PS3 the screen shows the
+	   latest line, and the log file is written whether tracing is on or not. */
 	printf("[ps5-smbd] %s\n", line);
 	fflush(stdout);
 #ifdef PS3_PPU_PLATFORM
@@ -63,6 +63,10 @@ void smbd_log(const char *fmt, ...)
 		fprintf(g_trace_log, "%ld %s\n", (long)time(NULL), line);
 		fflush(g_trace_log);
 	}
+#ifdef PS3_PPU_PLATFORM
+	/* stdout never reaches the TV. The screen shows this line. */
+	ps3_note(line);
+#endif
 }
 
 static void on_error(struct smb2_context *smb2, const char *text)
@@ -103,6 +107,7 @@ static void set_socket_buffers(int fd)
 static void on_new_client(struct smb2_context *smb2, void *cb_data)
 {
 	(void)cb_data;
+	smbd_log("client connected");
 	/* SMB 3.0 to 3.1.1 (docs/decision-log.md D21). The libsmb2 pinned before had its 3.1.1 negotiate
 	   contexts wrong, so this stopped at 3.0.2; a client that asks for 3.1.1 only (Smb2DialectMin) could not
 	   connect. No SMB 2.x: everything since Windows 8 speaks 3.0, and 3.x is what signs with AES-CMAC. */
@@ -240,7 +245,7 @@ int main(void)
 		if (f)
 			fclose(f);
 #ifdef PS3_PPU_PLATFORM
-		/* stdout never reaches a screen; the file is the log */
+		/* stdout never reaches the TV; the file is the log */
 		g_trace_log = fopen(SMBD_TRACE_FILE, "a");
 #else
 		if (smbd_trace)

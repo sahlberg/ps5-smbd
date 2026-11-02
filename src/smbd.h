@@ -60,8 +60,10 @@ size_t rpc_pipe_read(void *pipe, uint8_t *buf, size_t max, int *more);
 void smbd_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 #ifdef PS3_PPU_PLATFORM
-/* The network, the dialog and the server thread (ps3.c). ps3_init is first: nothing may open a socket before it. */
+/* The network, the screen and the server thread (ps3.c). ps3_init is first: nothing may open a socket before it. */
 int ps3_init(void);
 int ps3_console_name(char *buf, size_t size);
 int ps3_serve(struct smb2_server *server, int max_clients, void (*cb)(struct smb2_context *, void *), void *data);
+/* The latest line for the screen. The main thread is the one that draws it. */
+void ps3_note(const char *line);
 #endif

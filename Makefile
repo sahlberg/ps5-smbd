@@ -69,7 +69,7 @@ $(PS3_ELF): .deps/ps3/lib/libsmb2.a .deps/ps3/lib/libdcerpc.a $(PS3_SRCS) $(HDRS
 	  -I$(PSL1GHT)/ppu/include \
 	  -o $@ $(PS3_SRCS) \
 	  -L.deps/ps3/lib -ldcerpc -lsmb2 \
-	  -lnet -lnetctl -lsysutil -lsysmodule -lio -lsysfs -llv2 -lrt -lm
+	  -lnet -lnetctl -lrsx -lgcm_sys -lsysutil -lsysmodule -lio -lsysfs -llv2 -lrt -lm
 
 ps3: $(PS3_PKG)
 
